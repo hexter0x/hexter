@@ -1,0 +1,23 @@
+{
+  "dependencies": {
+    "@hyperapp/render": "^2.0.0",
+    "@plant/plant": "^1.0.0-alpha.0",
+    "fast-memoize": "^2.3.2",
+    "history": "^4.7.2",
+    "hyperapp": "^1.2.5",
+    "mime": "^2.3.1"
+  },
+  "devDependencies": {
+    "browserify": "^16.2.2",
+    "chokidar": "^2.0.3"
+  },
+  "scripts": {
+    "clean": "rm -rf dist",
+    "dist": "mkdir dist",
+    "render": "npm run build && node cli.js / > dist/index.html && node cli.js 404 > dist/404.html",
+    "build": "npm run clean && npm run dist && npm run browserify && cp -r assets/* dist/",
+    "browserify": "browserify -o dist/app.js ./web.js",
+    "start": "node server.js 8000",
+    "dev": "node bin/dev.js"
+  }
+}

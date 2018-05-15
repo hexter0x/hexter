@@ -1,0 +1,58 @@
+html, body {
+  font-family: sans-serif;
+  padding: 0;
+  margin: 0;
+}
+
+.container {
+  max-width: 960px;
+  padding: 40px;
+  margin: 0 auto;
+}
+
+a {
+  color: black;
+}
+
+.logo {
+  vertical-align: middle;
+  margin-left: -30px;
+  margin-right: 14px;
+}
+
+.hero {
+  margin: 5em 0;
+  font-size: 120%;
+}
+
+.projectList {
+  list-style: none;
+  padding: 0;
+}
+
+.projectList-item {
+  margin: 0;
+  margin-bottom: 3em;
+}
+
+.projectList-itemLink {
+
+}
+
+.projectProps {
+  display: inline-block;
+  margin: 0;
+  margin-right: 0.5em;
+}
+
+.projectProps-key {
+  display: inline-block;
+  color: #666;
+  margin: 0;
+}
+
+.projectProps-value {
+  display: inline-block;
+  margin: 0;
+  margin-left: 0.1em;
+}
