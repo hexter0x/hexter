@@ -41,5 +41,5 @@ plant.use(({req, res}) => {
 const server = http.createServer(plant.handler());
 
 server.listen(PORT, () => {
-  console.log('Server is started');
+  console.log('Server is started at localhost:%s', PORT);
 });
