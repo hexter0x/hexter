@@ -12,6 +12,8 @@ const {h} = require('hyperapp');
     'ul',
     'li',
     'header',
+    'footer',
+    'nav',
     'h1',
     'h2',
     'h3',
@@ -30,9 +32,17 @@ const {h} = require('hyperapp');
     'th',
     'td',
     'tr',
+    'form',
     'button',
     'input',
+    'textarea',
     'hr',
+    'img',
+    'svg',
+    'small',
+    'big',
+    'sup',
+    'sub',
 ]
 .forEach((name) => {
     exports[name] = (...args) => h(name, ...args);

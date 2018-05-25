@@ -4,14 +4,35 @@ html, body {
   margin: 0;
 }
 
+#app {
+  min-height: 100%;
+}
+
+.plato {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+}
+
 .container {
   max-width: 960px;
-  padding: 40px;
   margin: 0 auto;
 }
 
+.container-compact {
+  max-width: 760px;
+}
+
+.padded {
+  padding: 16px;
+}
+
+.paddedX2 {
+  padding: 32px 16px;
+}
+
 a {
-  color: black;
+  /* color: black; */
 }
 
 .logo {
@@ -20,39 +41,26 @@ a {
   margin-right: 14px;
 }
 
-.hero {
-  margin: 5em 0;
-  font-size: 120%;
+.messageForm {
+  margin-bottom: 0;
 }
 
-.projectList {
-  list-style: none;
-  padding: 0;
+.feather {
+  vertical-align: text-bottom;
 }
 
-.projectList-item {
-  margin: 0;
-  margin-bottom: 3em;
+.account-link {
+  font-family: SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+  color: #333;
+  font-size: 87.5%;
 }
 
-.projectList-itemLink {
-
+.account-link:hover {
+  color: #000;
+  text-decoration: none;
 }
 
-.projectProps {
+.message-details {
   display: inline-block;
-  margin: 0;
-  margin-right: 0.5em;
-}
-
-.projectProps-key {
-  display: inline-block;
-  color: #666;
-  margin: 0;
-}
-
-.projectProps-value {
-  display: inline-block;
-  margin: 0;
-  margin-left: 0.1em;
+  padding: 2px 0;
 }

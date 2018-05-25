@@ -1,25 +1,32 @@
 const {h} = require('hyperapp');
+const {html, head, body, title, link, script} = require('./lib/html');
 
-module.exports = ({head, body, contentValues}) => h('html', {},
-  h('head', {},
-    h('title', {}, head.title),
-    h('link', {
-      href: '/assets/app.css',
-      rel: 'stylesheet',
-    }),
-    h('link', {
+module.exports = (page) => html({},
+  head({},
+    title({}, page.head.title),
+    link({
       href: '/assets/logo.png',
       rel: 'shortcut icon',
       type: 'image/png',
     }),
+    link({
+      href: 'https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css',
+      integrity: 'sha384-WskhaSGFgHYWDcbwN70/dfYBj47jz9qbsMId/iRN3ewGhXQFZCSftd1LZCfmhktB',
+      crossorigin: 'anonymous',
+      rel:' stylesheet',
+    }),
+    link({
+      href: '/assets/app.css',
+      rel: 'stylesheet',
+    }),
   ),
-  h('body', {}, [
-    h('div', {id: 'app'}, body),
-    h('script', {
+  body({}, [
+    h('div', {id: 'app'}, page.body),
+    script({
       id: 'state',
       type: 'application/json',
-    }, JSON.stringify(contentValues)),
-    h('script', {
+    }, JSON.stringify(page.contentValues)),
+    script({
       src: '/assets/app.js',
     }),
   ]),
