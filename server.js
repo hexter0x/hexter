@@ -29,7 +29,7 @@ const ETHNODE = process.env.ETHNODE || 'https://ropsten.infura.io/Z8iEwVFn2E4nTI
 const eth = new Eth(new Eth.HttpProvider(ETHNODE));
 const contract = new EthContract(eth);
 const abi = require('./abi');
-const Communa = contract(abi);
+const Group = contract(abi);
 
 const sql = new Sql({
   dialect: 'sqlite',
@@ -555,8 +555,8 @@ router.post('/actions', async ({req, res}) => {
   }
   else if (owner.isContract) {
     // Send permission request...
-    const communa = Communa.at(address);
-    const rank = await communa.getRank(senderAddress);
+    const rank = await Group.at(address)
+    .getRank(senderAddress);
 
     if (rank < 1 || rank > 4) {
       res.status(403)
