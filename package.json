@@ -6,6 +6,8 @@
     "axios": "^0.18.0",
     "dayjs": "^1.6.2",
     "ethereumjs-util": "^5.2.0",
+    "ethjs": "^0.4.0",
+    "ethjs-contract": "^0.2.3",
     "fast-memoize": "^2.3.2",
     "history": "^4.7.2",
     "hyperapp": "^1.2.5",
@@ -26,6 +28,6 @@
     "build": "npm run clean && npm run dist && npm run browserify && cp -r assets/* dist/",
     "browserify": "browserify -o dist/app.js ./web.js",
     "start": "node server.js 8000",
-    "dev": "node bin/dev.js"
+    "dev": "npm run build && node bin/dev.js app"
   }
 }

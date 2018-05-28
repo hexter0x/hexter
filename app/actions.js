@@ -89,19 +89,25 @@ module.exports = ({history, resolve, ethProvider, api} = {}) => ({
       case 'mainPage': {
         actions.setData({isLoaded: false});
         const data = await api.getMainPage();
-        actions.setData({data});
+        actions.setData({
+          data: Object.assign({}, state.mainPage, data),
+        });
         break;
       }
       case 'accountPage': {
         actions.setData({isLoaded: false});
         const data = await api.getAccountMessages(params.address, params.page);
-        actions.setData({data});
+        actions.setData({
+          data: Object.assign({}, state.accountPage, data),
+        });
         break;
       }
       case 'messagePage': {
         actions.setData({isLoaded: false});
         const data = await api.getAccountMessage(params.address, params.nonce);
-        actions.setData({data});
+        actions.setData({
+          data: Object.assign({}, state.messagePage, data),
+        });
         break;
       }
       }
@@ -120,24 +126,20 @@ module.exports = ({history, resolve, ethProvider, api} = {}) => ({
     });
   },
 
+  toggleMessageForm: () => (state) => {
+    return imm.setIn(state, ['data', 'isCollapsed'], ! state.data.isCollapsed);
+  },
+
   setMessageText: (text) => (state) => {
     return imm.setIn(state, ['data', 'message'], text);
   },
 
-  sendMessage: (text) => (state, actions) => {
-    if (! text.length) {
+  sendMessage: ({address, message}) => (state, actions) => {
+    if (! message.length) {
       return;
     }
 
     const {page, params} = state;
-    const address = ethProvider.eth.accounts[0];
-
-    if (address !== params.address.toLowerCase()) {
-      actions.setData({
-        error: new Error('Address mismatch'),
-      });
-      return;
-    }
 
     api.getNextParams(address)
     .then(({nonce, lastHash}) => {
@@ -146,11 +148,13 @@ module.exports = ({history, resolve, ethProvider, api} = {}) => ({
         action: 'publish',
         nonce: nonce + 1,
         prev: lastHash,
-      }, text);
+      }, message);
+
+      const currentAddress = ethProvider.eth.accounts[0];
 
       return new Promise((resolve, reject) => {
         ethProvider.personal.sign(
-          ethProvider.toHex(packet), address, toCallback(resolve, reject)
+          ethProvider.toHex(packet), currentAddress, toCallback(resolve, reject)
         );
       })
       .then((signature) => api.publishPacket(packet, signature))
@@ -190,5 +194,5 @@ function toCallback(resolve, reject) {
     else {
       resolve(result);
     }
-  }
+  };
 }

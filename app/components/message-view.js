@@ -18,20 +18,38 @@ const htmlMessage = (props) => (state, actions) => p({
   ...props,
 });
 
-module.exports = ({html, nonce, account: acc, createdAt}) => div({
+const authorBar = ({sender, owner}) => {
+  if (sender.address === owner.address) {
+    return [
+      account({address: sender.address, size: 16}),
+    ];
+  }
+  else {
+    return [
+      account({address: owner.address, size: 16, showLink: false}),
+      ' ',
+      account({address: sender.address, size: 16}),
+    ];
+  }
+};
+
+module.exports = ({html, nonce, owner, sender, createdAt}) => div({
   class: 'card',
 }, [
   div({class: 'card-body'}, [
-    htmlMessage({innerHTML: html, style: {'margin-bottom': '0'}}),
+    htmlMessage({
+      innerHTML: html,
+      style: {'margin-bottom': '0'},
+    }),
     // hr(),
   ]),
   div({class: 'card-footer text-muted'}, [
     div({class: 'row'}, [
       div({class: 'col-md-8'}, [
-        account({address: acc.address, size: 16}),
+        ...authorBar({sender, owner}),
         span({style: {padding: '0 0.5rem'}}, '/'),
         link({
-          href: `/${acc.address}/${nonce}`,
+          href: `/${owner.address}/${nonce}`,
         }, nonce),
       ]),
       div({class: 'col-md-4 text-md-right'}, [
@@ -42,10 +60,10 @@ module.exports = ({html, nonce, account: acc, createdAt}) => div({
           ' ',
           a({
             'aria-label': 'Signed raw action',
-            href: `/${acc.address}/actions/${nonce}`,
-          }, fileIcon({ width: 16, height: 16})),
+            href: `/${owner.address}/actions/${nonce}`,
+          }, fileIcon({width: 16, height: 16})),
         ]),
       ]),
-    ])
-  ])
+    ]),
+  ]),
 ]);

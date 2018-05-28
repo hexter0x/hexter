@@ -1,12 +1,13 @@
 const http = require('http');
 const path = require('path');
 const mime = require('mime');
-const memoize = require('fast-memoize');
 const Plant = require('@plant/plant');
 const {renderToString} = require('@hyperapp/render');
 const Sql = require('sequelize');
 const ethUtil = require('ethereumjs-util');
 const qs = require('qs');
+const Eth = require('ethjs');
+const EthContract = require('ethjs-contract');
 
 const mount = require('./lib/plant/mount');
 const bodyLimit = require('./lib/plant/body-limit');
@@ -16,12 +17,19 @@ const {actions, store, view} = require('./app');
 const {resolve} = require('./app/router');
 const toHtml = require('./app/lib/parser');
 const {unpack} = require('./app/lib/packet');
+const b = require('./lib/string-block');
 
 // Default Kilobytes size.
 const KiB = 1024;
 const NULLHASH = `0x${'0'.repeat(64)}`;
 
 const PORT = process.argv[2] || 8080;
+const ETHNODE = process.env.ETHNODE || 'https://ropsten.infura.io/Z8iEwVFn2E4nTIxzkuDJ';
+
+const eth = new Eth(new Eth.HttpProvider(ETHNODE));
+const contract = new EthContract(eth);
+const abi = require('./abi');
+const Communa = contract(abi);
 
 const sql = new Sql({
   dialect: 'sqlite',
@@ -48,6 +56,11 @@ const Account = sql.define('account', {
     isNull: false,
     defaultValue: NULLHASH,
   },
+  isContract: {
+    type: Sql.BOOLEAN,
+    isNull: false,
+    defaultValue: false,
+  },
 });
 
 const Action = sql.define('action', {
@@ -56,12 +69,21 @@ const Action = sql.define('action', {
     primaryKey: true,
     autoIncrement: true,
   },
-  accountId: {
+  ownerId: {
     type: Sql.INTEGER,
     references: {
       model: Account,
       key: 'id',
     },
+    isNull: false,
+  },
+  senderId: {
+    type: Sql.INTEGER,
+    references: {
+      model: Account,
+      key: 'id',
+    },
+    isNull: false,
   },
   nonce: {
     type: Sql.INTEGER.UNSIGNED,
@@ -83,12 +105,13 @@ const Action = sql.define('action', {
   indexes: [
     {
       unique: true,
-      fields: ['accountId', 'nonce'],
+      fields: ['ownerId', 'nonce'],
     },
-  ]
+  ],
 });
 
-Action.belongsTo(Account, {as: 'account'});
+Action.belongsTo(Account, {as: 'owner'});
+Action.belongsTo(Account, {as: 'sender'});
 
 const Message = sql.define('message', {
   id: {
@@ -96,7 +119,15 @@ const Message = sql.define('message', {
     primaryKey: true,
     autoIncrement: true,
   },
-  accountId: {
+  ownerId: {
+    type: Sql.INTEGER,
+    references: {
+      model: Account,
+      key: 'id',
+    },
+    isNull: false,
+  },
+  senderId: {
     type: Sql.INTEGER,
     references: {
       model: Account,
@@ -127,7 +158,8 @@ const Message = sql.define('message', {
   },
 });
 
-Message.belongsTo(Account, {as: 'account'});
+Message.belongsTo(Account, {as: 'owner'});
+Message.belongsTo(Account, {as: 'sender'});
 Message.belongsTo(Action, {as: 'action'});
 
 function render ({title, ...rest}) {
@@ -161,59 +193,59 @@ function getAddress(sig, msg) {
 
 // Run SQL transaction
 async function execTx(fn) {
-    const t = await sql.transaction();
+  const t = await sql.transaction();
 
-    try {
-        await fn(t);
-    }
-    catch (err) {
-        t.rollback();
-        throw err;
-    }
+  try {
+    await fn(t);
+  }
+  catch (err) {
+    t.rollback();
+    throw err;
+  }
 
-    t.commit();
+  t.commit();
 }
 
 function sendResult({req, res, result = {}}) {
   switch (req.accept(['json'])) {
   case 'json':
-      res.json(output(result));
-      break;
+    res.json(output(result));
+    break;
   default:
-      const url = req.url.pathname;
-      const {title, page, status, params = {}} = resolve(url);
+    const url = req.url.pathname;
+    const {title, page, status, params = {}} = resolve(url);
 
-      for (const [name, value] of Object.entries(qs.parse(req.url.search.slice(1)))) {
-        if (! params.hasOwnProperty(name)) {
-          params[name] = value;
-        }
+    for (const [name, value] of Object.entries(qs.parse(req.url.search.slice(1)))) {
+      if (! params.hasOwnProperty(name)) {
+        params[name] = value;
       }
+    }
 
-      const content = {
-          isClient: false,
-          isLoaded: true,
-          title,
-          url,
-          page,
-          data: output(result),
-          params,
-      };
+    const content = {
+      isClient: false,
+      isLoaded: true,
+      title,
+      url,
+      page,
+      data: output(result),
+      params,
+    };
 
-      const html = render(content);
+    const html = render(content);
 
-      res.status(status)
-      .html(html);
+    res.status(status)
+    .html(html);
   }
 }
 
 async function handlePage(fn, ctx) {
-    const result = await fn(ctx);
+  const result = await fn(ctx);
 
-    if (result === null) {
-        return;
-    }
+  if (result === null) {
+    return;
+  }
 
-    sendResult({...ctx, result});
+  sendResult({...ctx, result});
 }
 
 // Create page renderer handler
@@ -275,6 +307,8 @@ function outputAction(value) {
     type: value.type,
     data: value.data,
     hash: value.hash,
+    owner: value.owner ? outputAccount(value.owner) : undefined,
+    sender: value.sender ? outputAccount(value.sender) : undefined,
   };
 }
 
@@ -285,7 +319,27 @@ function outputMessage(value) {
     html: value.html,
     nonce: value.nonce,
     createdAt: value.createdAt,
-    account: value.account ? outputAccount(value.account) : undefined,
+    owner: value.owner ? outputAccount(value.owner) : undefined,
+    sender: value.sender ? outputAccount(value.sender) : undefined,
+  };
+}
+
+async function list(model, {where, ...rest} = {}) {
+  const [items, [count]] = await Promise.all([
+    model.findAll({
+      where, ...rest,
+    }),
+    model.findAll({
+      where,
+      attributes: [
+        [Sql.fn('COUNT', Sql.col('id')), 'count'],
+      ],
+    }),
+  ]);
+
+  return {
+    items,
+    count: count.get('count'),
   };
 }
 
@@ -301,82 +355,60 @@ async function listMessages({address, page = 1, size = 25}) {
       return {items: [], count: 0};
     }
 
-    query.accountId = account.id;
+    query.ownerId = account.id;
   }
 
-  const [items, [count]] = await Promise.all([
-    Message.findAll({
-      where: query,
-      order: [
-        ['nonce', 'DESC'],
-      ],
-      offset: size * (page - 1),
-      limit: size,
-      include: [
-        'account',
-      ],
-    }),
-    Message.findAll({
-      where: query,
-      attributes: [
-        [Sql.fn('COUNT', Sql.col('id')), 'count'],
-      ],
-    }),
-  ]);
-
-  return {
-    items,
-    count: count.get('count'),
-  };
+  return list(Message, {
+    where: query,
+    order: [
+      ['nonce', 'DESC'],
+    ],
+    offset: size * (page - 1),
+    limit: size,
+    include: [
+      'owner',
+      'sender',
+    ],
+  });
 }
 
-async function listAccounts({size = 25, page = 1} = {}) {
-  const query = {};
+function listAccounts({where = {}, size = 25, page = 1} = {}) {
+  const query = {...where};
 
-  const [items, [count]] = await Promise.all([
-    Account.findAll({
-      where: query,
-      order: [
-        ['createdAt', 'DESC'],
-      ],
-      offset: size * (page - 1),
-      limit: size,
-    }),
-    Account.findAll({
-      where: query,
-      attributes: [
-        [Sql.fn('COUNT', Sql.col('id')), 'count'],
-      ],
-    }),
-  ]);
-
-  return {
-    items,
-    count: count.get('count'),
-  };
+  return list(Account, {
+    where: query,
+    order: [
+      ['createdAt', 'DESC'],
+    ],
+    offset: size * (page - 1),
+    limit: size,
+  });
 }
 
 async function getMessageWithNonce(address, nonce) {
-  const account = await Account.findOne({
+  const owner = await Account.findOne({
     where: {address},
   });
 
-  if (! account || nonce > account.nonce) {
+  if (! owner || nonce > owner.nonce) {
     return null;
   }
 
   const message = await Message.findOne({
     where: {
-      accountId: account.id,
+      ownerId: owner.id,
       nonce,
     },
+    include: [
+      'sender',
+    ],
   });
 
   if (! message) {
     return null;
   }
 
-  message.account = account;
+  message.owner = owner;
 
   return message;
 }
@@ -392,7 +424,7 @@ async function getActionWithNonce(address, nonce) {
 
   const action = await Action.findOne({
     where: {
-      accountId: account.id,
+      ownerId: account.id,
       nonce,
     },
   });
@@ -406,7 +438,20 @@ async function getActionWithNonce(address, nonce) {
   return action;
 }
 
-router.get('/accounts/new', async ({req, res}) => {
+async function getAccountByAddress(address) {
+  let account = await Account.findOne({
+    where: {address},
+  });
+
+  if (! account) {
+    isContract = !! (await eth.getCode(address));
+    account = await Account.create({address, isContract});
+  }
+
+  return account;
+}
+
+router.get('/accounts/new', async ({res}) => {
   const accounts = await listAccounts();
 
   res.json(output({accounts}));
@@ -460,13 +505,14 @@ router.get('/messages', async ({req, res}) => {
   );
 });
 
+/* eslint-disable max-statements */
 router.post('/actions', async ({req, res}) => {
   const sig = req.headers.get('x-signature');
   const data = await streamToPromise(req.stream);
 
-  let signAddress;
+  let senderAddress;
   try {
-    signAddress = getAddress(sig, data);
+    senderAddress = getAddress(sig, data);
   }
   catch (err) {
     res.status(400)
@@ -483,22 +529,6 @@ router.post('/actions', async ({req, res}) => {
   const packet = unpack(data.toString());
   const {params} = packet;
   const {address} = params;
-
-  if (address !== signAddress) {
-    res.status(400)
-    .json({
-      error: {code: 'address_incorrect', detail:{address:params.address, signAddress}},
-    });
-    return;
-  }
-
-  if (params.action !== 'publish') {
-    res.status(400)
-    .json({
-      error: {code: 'publish_error'},
-    });
-    return;
-  }
 
   if (packet.message.length > 256 || packet.message.length === 0) {
     res.status(400)
@@ -518,29 +548,55 @@ router.post('/actions', async ({req, res}) => {
     return;
   }
 
-  let account = await Account.findOne({
-    where: {
-      address,
-    },
-  });
+  let owner = await getAccountByAddress(address);
+  let sender;
+  if (address === senderAddress) {
+    sender = owner;
+  }
+  else if (owner.isContract) {
+    // Send permission request...
+    const communa = Communa.at(address);
+    const rank = await communa.getRank(senderAddress);
+
+    if (rank < 1 || rank > 4) {
+      res.status(403)
+      .json({
+        error: {code: 'access_declined'},
+      });
+    }
+
+    sender = await getAccountByAddress(senderAddress);
+  }
+  else {
+    res.status(403)
+    .json({
+      error: {code: 'access_declined'},
+    });
+    return;
+  }
 
   let message;
 
+  if (params.action !== 'publish') {
+    res.status(400)
+    .json({
+      error: {code: 'publish_error'},
+    });
+    return;
+  }
+
   try {
     await execTx(async (transaction) => {
-      if (! account) {
-        account = await Account.create({address}, {transaction});
-      }
-
-      if (nonce !== account.nonce + 1) {
+      if (nonce !== owner.nonce + 1) {
         throw {code: 'nonce_value', details: {nonce}};
       }
-      else if (packet.params.prev!== account.lastHash) {
-        throw {code: 'prevHash_value', details: {prevHash: account.lastHash}};
+      else if (packet.params.prev!== owner.lastHash) {
+        throw {code: 'prevHash_value', details: {prevHash: owner.lastHash}};
       }
 
       const action = await Action.create({
-        accountId: account.id,
+        ownerId: owner.id,
+        senderId: sender.id,
         nonce,
         data,
         hash,
@@ -550,18 +606,20 @@ router.post('/actions', async ({req, res}) => {
       const html = toHtml(packet.message);
 
       message = await Message.create({
-        accountId: account.id,
+        ownerId: owner.id,
+        senderId: sender.id,
         actionId: action.id,
         html,
         nonce,
       }, {transaction});
 
-      await account.update({
+      await owner.update({
         nonce,
         lastHash: hash,
       }, {transaction});
 
-      message.account = account;
+      message.owner = owner;
+      message.sender = sender;
     });
   }
   catch (error) {
@@ -586,13 +644,17 @@ plant.use(bodyLimit(1 * KiB));
 plant.use('/api/v1', router);
 plant.use(mount('/assets', './dist'));
 plant.router((router) => {
-  router.get('/', pageHandler(async ({req, res}) => {
-    const accounts = await listAccounts();
+  router.get('/', pageHandler(async () => {
+    const accounts = await listAccounts({
+      where: {
+        nonce: {[Sql.Op.gt]: 0},
+      },
+    });
 
     return {accounts};
   }));
 
-  router.get('/:address(0x[a-z0-9]{40})', pageHandler(async ({req, res}) => {
+  router.get('/:address(0x[a-z0-9]{40})', pageHandler(async ({req}) => {
     const {address} = req.params;
     const page = parseInt(req.url.searchParams.get('page') || '1', 10);
 
@@ -601,10 +663,10 @@ plant.router((router) => {
       page,
     });
 
-    return {items, count};
+    return {...store.accountPage, items, count};
   }));
 
-  router.get('/:address(0x[a-z0-9]{40})/:nonce(\\d+)', pageHandler(async ({req, res}) => {
+  router.get('/:address(0x[a-z0-9]{40})/:nonce(\\d+)', pageHandler(async ({req}) => {
     const {address} = req.params;
     const nonce = parseInt(req.params.nonce, 10);
 
@@ -629,7 +691,14 @@ plant.router((router) => {
       return;
     }
 
-    res.text(`${'---Signature'.padEnd(80, '-')}\n${action.signature.slice(2)}\n${'---Hash'.padEnd(80, '-')}\n${action.hash}\n${'---Message'.padEnd(80, '-')}\n${action.data}`)
+    res.text(b`
+      ${'---Signature'.padEnd(80, '-')}
+      ${action.signature.slice(2)}
+      ${'---Hash'.padEnd(80, '-')}
+      ${action.hash}
+      ${'---Message'.padEnd(80, '-')}
+      ${action.data}
+    `);
   });
 
   router.use(sendResult);

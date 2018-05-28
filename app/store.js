@@ -8,3 +8,7 @@ exports.currentAddress = null;
 exports.mainPage = {
   message: '',
 };
+
+exports.accountPage = {
+  isCollapsed: true,
+};

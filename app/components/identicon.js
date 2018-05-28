@@ -1,20 +1,23 @@
 const blockies = require('../lib/blockies');
 const {img, div} = require('../lib/html');
+const memoize = require('fast-memoize');
+
+const toBlockie = memoize(
+  (...args) => blockies.create(...args).toDataURL()
+);
 
 const identicon = ({address, size = 24, ...props}) => {
   const seed = address.toLowerCase();
-  const s = Math.sqrt(size);
 
   if (typeof document !== 'undefined') {
     return img({
       class: 'rounded',
       ...props,
-      src: blockies.create({
+      src: toBlockie({
         size: 8,
         scale: Math.floor(size / 8),
         seed: seed,
-      })
-      .toDataURL(),
+      }),
       width: size,
       height: size,
     });

@@ -21,7 +21,7 @@ class HttpAdapter {
   publishPacket(packet, signature) {
     return this.axios.request({
       method: 'post',
-      url: `/actions`,
+      url: '/actions',
       data: packet,
       headers: {
         'x-signature': signature,
@@ -35,7 +35,7 @@ class HttpAdapter {
   getMainPage() {
     return this.axios.request({
       method: 'get',
-      url: `/accounts/new`,
+      url: '/accounts/new',
     })
     .then((res) => res.data);
   }
