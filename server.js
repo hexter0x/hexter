@@ -451,8 +451,25 @@ async function getAccountByAddress(address) {
   return account;
 }
 
+router.get('/accounts/', async ({req, res}) => {
+  const page = parseInt(req.url.searchParams.get('page') || '1', 10);
+  const size = parseInt(req.url.searchParams.get('size') || '25', 10);
+
+  const {items, count} = await listAccounts({where, page, size});
+
+  res.json(output({
+    items,
+    count,
+  }));
+});
+
 router.get('/accounts/new', async ({res}) => {
-  const accounts = await listAccounts();
+  const accounts = await listAccounts({
+    where: {
+      nonce: {[Sql.Op.gt]: 0},
+    },
+    size: 50,
+  });
 
   res.json(output({accounts}));
 });
