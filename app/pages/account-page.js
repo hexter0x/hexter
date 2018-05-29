@@ -1,5 +1,3 @@
-const {h} = require('hyperapp');
-
 const {
   // h1,
   h5,
@@ -60,8 +58,16 @@ const messagesView = ({items, count}) => {
   }
 };
 
+const pageView = (state, children) => div({class: 'plato'},
+  pageContainer(state,
+    div({
+      class: 'container paddedX2 container-compact',
+    }, children)
+  )
+);
+
 module.exports = (state, actions) => {
-  const {data = {}, currentAddress} = state;
+  const {isLoaded, error, data = {}, currentAddress} = state;
   const address = state.params.address.toLowerCase();
   const page = parseInt(state.params.page || '1', 10);
 
@@ -72,35 +78,50 @@ module.exports = (state, actions) => {
   const isSelf = (address === currentAddress);
   const isFormVisible = (isSelf || isCollapsed === false);
 
-  return div({class: 'plato'},
-    pageContainer(state, div({class: 'container paddedX2 container-compact'}, [
-      p({class: 'text-center padded'}, [
-        big({}, account({address, size: 24})),
-        ' ',
-        (! isSelf) ? button({
-          class: 'btn btn-light btn-sm',
-          onclick() {
-            actions.toggleMessageForm();
-          },
-        }, [
-          messageIcon({width: 16, height: 16}),
-        ]) : null,
+  if (! isLoaded) {
+    return pageView(state, div({class: 'card-body text-center'}, [
+      h5({class: 'card-title'}, 'Loading...'),
+      p({class: 'card-text text-muted'}, [
+        'Please wait',
       ]),
-      isFormVisible ? div({class: 'card bg-light', style: {marginBottom: '1rem'}}, [
-        div({class: 'card-body'}, [
-          messageForm({
-            key: count + 1,
-            message,
-            limit: 256,
-            setMessage: (text) => actions.setMessageText(text),
-            sendMessage: () => actions.sendMessage({address, message}),
-          }),
-        ]),
+    ]));
+  }
+  else if (error) {
+    return pageView(state, div({class: 'card-body text-center'}, [
+      h5({class: 'card-title'}, 'Error'),
+      p({class: 'card-text text-muted'}, [
+        'Sorry! Error occured.',
+      ]),
+    ]));
+  }
+
+  return pageView(state, [
+    p({class: 'text-center padded'}, [
+      big({}, account({address, size: 24})),
+      ' ',
+      (! isSelf) ? button({
+        class: 'btn btn-light btn-sm',
+        onclick() {
+          actions.toggleMessageForm();
+        },
+      }, [
+        messageIcon({width: 16, height: 16}),
       ]) : null,
-      messagesView({items, count}),
-      pager ? div({class: 'padded'}, [
-        pager,
-      ]) : null,
-    ]))
-  );
+    ]),
+    isFormVisible ? div({class: 'card bg-light', style: {marginBottom: '1rem'}}, [
+      div({class: 'card-body'}, [
+        messageForm({
+          key: count + 1,
+          message,
+          limit: 256,
+          setMessage: (text) => actions.setMessageText(text),
+          sendMessage: () => actions.sendMessage({address, message}),
+        }),
+      ]),
+    ]) : null,
+    messagesView({items, count}),
+    pager ? div({class: 'padded'}, [
+      pager,
+    ]) : null,
+  ]);
 };

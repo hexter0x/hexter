@@ -1,9 +1,10 @@
 const {h} = require('hyperapp');
-const {html, head, body, title, link, script} = require('./lib/html');
+const {html, meta, head, body, title, link, script} = require('./lib/html');
 
 module.exports = (page) => html({},
   head({},
     title({}, page.head.title),
+    meta({name: 'viewport', content: 'initial-scale = 1.0,maximum-scale = 1.0'}),
     link({
       href: '/assets/logo.png',
       rel: 'shortcut icon',
