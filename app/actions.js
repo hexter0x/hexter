@@ -158,7 +158,7 @@ module.exports = ({history, resolve, ethProvider, api} = {}) => ({
         );
       })
       .then((signature) => api.publishPacket(packet, signature))
-      .then(({message}) => {
+      .then(({message: result}) => {
         const state = actions.getState();
 
         if (state.page === page && state.params === params) {
@@ -166,7 +166,7 @@ module.exports = ({history, resolve, ethProvider, api} = {}) => ({
             data: {
               ...state.data,
               message: '',
-              items: [message, ...state.data.items],
+              items: [result, ...state.data.items],
               count: state.data.count + 1,
             },
           });
