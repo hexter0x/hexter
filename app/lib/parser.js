@@ -20,12 +20,14 @@ function outerLink(url, label) {
   return `<a href="${url}" rel="nofollow">${escape(label)}</a>`;
 }
 
-const URL_RE = /(^|(?!(\s)))(https?:\/\/((?!((\.|\?|\!|\,)(\s|$)))\S)+)/g;
+const URL_RE = /(^|(?!(\s)))((https?:)?\/\/((?!((\.|\?|\!|\,)(\s|$)))\S)+)/g;
 const ADDR_RE = /(^|\s)(0x[A-Za-z0-9]{40}(\/\d+)?)/g;
 
 function replaceInline(line) {
   return line.replace(URL_RE, (url) => outerLink(url, url))
-  .replace(ADDR_RE, (all, ...args) => args[0] + innerLink(`/${args[1]}`, args[1]))
+  .replace(
+    ADDR_RE, (all, ...args) => args[0] + innerLink(`/${args[1]}`, args[1])
+  );
 }
 
 module.exports = toHtml;
